@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>SGU Quiz</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2rem; background: #f0f4f8; }
+    .frage-box { background: white; padding: 1rem; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+    .antwort-btn { display: block; width: 100%; margin: 0.5rem 0; padding: 0.75rem; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; background: #e0e0e0; }
+    .antwort-btn:hover { background: #d0d0d0; }
+    .richtig { background: #c8e6c9 !important; }
+    .falsch { background: #ffcdd2 !important; }
+    .feedback { margin-top: 1rem; font-weight: bold; }
+    .button-bar { margin-top: 2rem; text-align: center; }
+    button { margin: 0.5rem; padding: 0.5rem 1rem; font-size: 1rem; border-radius: 6px; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="frage-box">
+    <h2 id="frage-text">Lade Frage...</h2>
+    <div id="antworten"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="button-bar">
+      <button onclick="naechsteFrage()">Nächste Frage</button>
+      <button onclick="resetQuiz()">Quiz zurücksetzen</button>
+    </div>
+  </div>
+
+  <script>
+    let aktuelleFrage = null;
+
+    async function ladeFrage() {
+      const res = await fetch('/api/frage');
+      const data = await res.json();
+      aktuelleFrage = data;
+      document.getElementById('feedback').textContent = '';
+      if (data.frage) {
+        document.getElementById('frage-text').textContent = data.frage;
+        const antwortenDiv = document.getElementById('antworten');
+        antwortenDiv.innerHTML = '';
+        for (const key in data.antworten) {
+          const btn = document.createElement('button');
+          btn.textContent = `${key.toUpperCase()}: ${data.antworten[key]}`;
+          btn.className = 'antwort-btn';
+          btn.onclick = () => pruefeAntwort(key, btn);
+          antwortenDiv.appendChild(btn);
+        }
+      } else {
+        document.getElementById('frage-text').textContent = 'Keine Fragen mehr!';
+        document.getElementById('antworten').innerHTML = '';
+      }
+    }
+
+    async function pruefeAntwort(antwort, button) {
+      const res = await fetch('/api/antwort', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ antwort })
+      });
+      const result = await res.json();
+      const feedback = document.getElementById('feedback');
+      if (result.richtig) {
+        button.classList.add('richtig');
+        feedback.textContent = 'Richtige Antwort!';
+      } else {
+        button.classList.add('falsch');
+        feedback.textContent = `Falsch. Richtige Antwort war: ${result.korrekt.toUpperCase()}`;
+      }
+    }
+
+    function naechsteFrage() {
+      ladeFrage();
+    }
+
+    async function resetQuiz() {
+      await fetch('/api/reset', { method: 'POST' });
+      ladeFrage();
+    }
+
+    // Beim Laden sofort Frage holen
+    ladeFrage();
+  </script>
+</body>
+</html>
